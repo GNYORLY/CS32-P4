@@ -47,16 +47,13 @@ bool DiskMultiMap::insert(const std::string& key, const std::string& value, cons
 {
 	if (key.size() > 120 || value.size() > 120 || context.size() > 120)
 		return false; 
-
+	char s[121];
 	int i = hash(key);
 	int numNodes;
 	int emptyNodes;
 	bf.read(emptyNodes, 20);
 	bf.read(numNodes, header + (bucket*i));
-	MultiMapTuple m;
-	m.key = key;
-	m.value = value;
-	m.context = context;
+
 	if (emptyNodes == 0)
 	{
 		bf.write(numNodes + 1, header + (bucket*i));
@@ -64,7 +61,7 @@ bool DiskMultiMap::insert(const std::string& key, const std::string& value, cons
 		bf.read(last, 10);
 		if (numNodes == 0)
 		{
-			bf.write(last, header + (bucket*i) + 25); 
+			bf.write(last, header + (bucket*i) + 25); // insert where the new node will be, not last
 		}
 		else
 		{
@@ -73,7 +70,14 @@ bool DiskMultiMap::insert(const std::string& key, const std::string& value, cons
 			bf.write(last, header + (bucket*i) + 25);
 			bf.write(copy, last + 365);
 		}
-		bf.write(m, last);
+
+		bf.write(nodeSpace, last);
+		strcpy_s(s, key.c_str());
+		bf.write(s, last);
+		strcpy_s(s, value.c_str());
+		bf.write(s, last + 121);
+		strcpy_s(s, context.c_str());
+		bf.write(s, last + 242);
 		bf.write(last + 363, 10);
 		return true;
 	}
@@ -94,7 +98,13 @@ bool DiskMultiMap::insert(const std::string& key, const std::string& value, cons
 			bf.write(copy, node + 365);
 		}
 
-		bf.write(m, node);
+		bf.write(nodeSpace, node);
+		strcpy_s(s, key.c_str());
+		bf.write(s, node);
+		strcpy_s(s, value.c_str());
+		bf.write(s, node + 121);
+		strcpy_s(s, context.c_str());
+		bf.write(s, node + 242);
 		bf.write(emptyNodes - 1, 20);
 		return true;
 	}
@@ -107,17 +117,42 @@ DiskMultiMap::Iterator DiskMultiMap::search(const std::string& key)
 	int numNodes = 0;
 	int pos = header + (bucket*i);
 	bf.read(numNodes, pos);
-	
 	if (numNodes > 0)
 	{
-		Iterator iter(pos, numNodes);
+		Iterator iter(pos, numNodes, bf);
 		return iter;
 	}
 	else
 		cout << "not here\n";
+	Iterator iter(0, 0, bf);
+	return iter;
 }
 
-int DiskMultiMap::erase(const std::string& key, const std::string& value, const std::string& context) { return 1; }
+int DiskMultiMap::erase(const std::string& key, const std::string& value, const std::string& context)
+{
+	Iterator iter = search(key);
+	int erased = 0;
+	int i = hash(key);
+	int numNodes = 0;
+	int prev = header + (bucket*i);
+	bf.read(numNodes, prev);
+	prev += 25;
+	for (int k = 0; k < numNodes; k++, ++iter)
+	{
+		if ((*iter).value == value && (*iter).context == context)
+		{
+			int erase;
+			bf.read(erase, prev);
+			emptyNode(erase);
+			bf.read(erase, erase + 365);
+			bf.write(erase, prev);
+			erased++;
+		}
+		bf.read(prev, prev);
+		prev += 365;
+	}
+	return erased;
+}
 
 
 ////////////////////////////private////////////////////////////
@@ -131,6 +166,14 @@ int DiskMultiMap::hash(const string& str)
 	return buck;
 }
 
+void DiskMultiMap::emptyNode(int space)
+{
+	int empty;
+	bf.read(empty, 20);
+	bf.write(space, 30 + (5 * empty));
+	bf.write(empty + 1, 20);
+}
+
 
 //////////////////////Iterator/////////////////////////////////
 
@@ -139,14 +182,14 @@ DiskMultiMap::Iterator::Iterator()
 	m_valid = false;
 }
 
-DiskMultiMap::Iterator::Iterator(int& bckt, int& nodes)
+DiskMultiMap::Iterator::Iterator(int bckt, int nodes, BinaryFile& BF)
 {
-	bf.openExisting("kk");
+	bf = &BF;
 	int curr;
 	m_prev = bckt + 25; //prev points to the location of the "pointer" to the next node
 	m_nodes = nodes;
 	m_valid = true;
-	bf.read(curr, m_prev);
+	bf->read(curr, m_prev);
 	m_curr = curr; //curr points to the beginning of the node
 }
 
@@ -160,16 +203,34 @@ bool DiskMultiMap::Iterator::isValid() const
 
 DiskMultiMap::Iterator& DiskMultiMap::Iterator::operator++() 
 { 
+	if (m_valid == false)
+		return *this;
+	if (m_nodes <= 0)
+	{
+		cout << "no more nodes\n";
+		m_valid = false;
+		return *this;
+	}
 	m_prev = m_curr + 365;
 	int next;
-	bf.read(next, m_curr + 365);
+	bf->read(next, m_curr + 365);
 	m_curr = next;
-	return;
+	m_nodes--;
+	return *this;
 }
 
 MultiMapTuple DiskMultiMap::Iterator::operator*()
 { 
 	MultiMapTuple x;
-	bf.read(x, m_curr);
+	char s[121];
+	bf->read(s, m_curr);
+	std::string r = s;
+	x.key = r;
+	bf->read(s, m_curr + 121);
+	r = s;
+	x.value = r;
+	bf->read(s, m_curr + 242);
+	r = s;
+	x.context = r;
 	return x;
 }
