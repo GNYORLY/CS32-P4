@@ -15,9 +15,7 @@ bool IntelWeb::createNew(const std::string& filePrefix, unsigned int maxDataItem
 	close();
 	int hashSize = 270000; // maxDataItems / .75;    //maxDataItems/.75 <= x or less
 
-	if (dl.createNew(filePrefix + "_dl.dat", hashSize) == true &&
-		create.createNew(filePrefix + "_create.dat", hashSize) == true &&
-		contact.createNew(filePrefix + "_contact.dat", hashSize) == true)
+	if (forward.createNew(filePrefix + "_forward.dat", hashSize) == true && backward.createNew(filePrefix + "_backward.dat", hashSize) == true)
 		return true;
 	else
 		cout << "could not create new\n";
@@ -27,9 +25,7 @@ bool IntelWeb::createNew(const std::string& filePrefix, unsigned int maxDataItem
 bool IntelWeb::openExisting(const std::string& filePrefix) 
 { 
 	close();
-	if (dl.openExisting(filePrefix + "_dl.dat") == true &&
-		create.openExisting(filePrefix + "_create.dat") == true &&
-		contact.openExisting(filePrefix + "_contact.dat") == true)
+	if (forward.openExisting(filePrefix + "_dl.dat") == true && backward.openExisting(filePrefix + "_create.dat") == true)
 		return true;
 	else
 		cout << "could not open\n";
@@ -38,9 +34,8 @@ bool IntelWeb::openExisting(const std::string& filePrefix)
 
 void IntelWeb::close() 
 {
-	dl.close();
-	create.close();
-	contact.close();
+	forward.close();
+	backward.close();
 }
 
 bool IntelWeb::ingest(const std::string& telemetryFile) 
@@ -56,7 +51,7 @@ bool IntelWeb::ingest(const std::string& telemetryFile)
 	while (getline(file, line))
 	{
 		int i = 0;
-		for (i; i < strlen(line.c_str()); i++)
+		for (i; i < signed (strlen(line.c_str())); i++)
 		{
 			if (line[i] == ' ')
 			{
@@ -68,7 +63,7 @@ bool IntelWeb::ingest(const std::string& telemetryFile)
 		i++;
 		first = s;
 		int j = 0;
-		for (i; i < strlen(line.c_str()); i++, j++)
+		for (i; i < signed (strlen(line.c_str())); i++, j++)
 		{
 			if (line[i] == ' ')
 			{
@@ -80,7 +75,7 @@ bool IntelWeb::ingest(const std::string& telemetryFile)
 		i++;
 		secnd = s;
 		j = 0;
-		for (i; i < strlen(line.c_str()); i++, j++)
+		for (i; i < signed (strlen(line.c_str())); i++, j++)
 		{
 			if (line[i] == ' ')
 			{
@@ -91,15 +86,9 @@ bool IntelWeb::ingest(const std::string& telemetryFile)
 		}
 		s[j] = '\0';
 		third = s;
-		if (secnd.find(".exe") != std::string::npos)
-		{
-			if (third.find(".exe") != std::string::npos)
-				create.insert(first, secnd, third);
-			else if (third.find("http://") != std::string::npos)
-				contact.insert(first, secnd, third);
-		}
-		else if (secnd.find("http://") != std::string::npos)
-			dl.insert(first, secnd, third);
+		
+		forward.insert(secnd, third, first);		
+		backward.insert(third, secnd, first);
 	}
 	return true;	
 }
