@@ -3,6 +3,7 @@
 
 #include <string>
 #include "MultiMapTuple.h"
+#include "BinaryFile.h"
 
 class DiskMultiMap
 {
@@ -12,13 +13,18 @@ public:
 	{
 	public:
 		Iterator();
-		// You may add additional constructors
+		Iterator(int bckt, int nodes, BinaryFile& BF);
+		
 		bool isValid() const;
 		Iterator& operator++();
 		MultiMapTuple operator*();
 
 	private:
-		// Your private member declarations will go here
+		BinaryFile* bf;
+		bool m_valid;
+		int m_nodes;
+		int m_prev;
+		int m_curr;
 	};
 
 	DiskMultiMap();
@@ -31,7 +37,13 @@ public:
 	int erase(const std::string& key, const std::string& value, const std::string& context);
 
 private:
-	// Your private member declarations will go here
+	BinaryFile bf;
+	BinaryFile::Offset header = 500;
+	BinaryFile::Offset bucket = 50;
+	BinaryFile::Offset nodeSpace = 400; //363
+	string fileName;
+	int hash(const string& str);
+	void emptyNode(int space);
 };
 
 #endif // DISKMULTIMAP_H_
