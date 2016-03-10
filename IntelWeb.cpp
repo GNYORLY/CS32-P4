@@ -87,6 +87,10 @@ bool IntelWeb::ingest(const std::string& telemetryFile)
 		s[j] = '\0';
 		third = s;
 		
+		unique.insert(secnd);
+		unique.insert(third);
+		malKeys.push(secnd);
+		malKeys.push(third);
 		forward.insert(secnd, third, first);		
 		backward.insert(third, secnd, first);
 	}
@@ -94,11 +98,63 @@ bool IntelWeb::ingest(const std::string& telemetryFile)
 }
 
 unsigned int IntelWeb::crawl(const std::vector<std::string>& indicators,
-							 unsigned int minPrevalenceToBeGood,
-							 std::vector<std::string>& badEntitiesFound,
-							 std::vector<InteractionTuple>& badInteractions) 
+	unsigned int minPrevalenceToBeGood,
+	std::vector<std::string>& badEntitiesFound,
+	std::vector<InteractionTuple>& badInteractions)
 {
-	return 1;
+	set<string>::iterator it;
+	for (it = unique.begin(); it != unique.end(); it++)
+		prevalence[*it] = 0;
+
+	unique.clear();
+
+	while (malKeys.empty() == false)
+	{
+		string keys = malKeys.front();
+		malKeys.pop();
+		int count = 1 + prevalence[keys];
+		prevalence.erase(keys);
+		prevalence[keys] = count;
+	}
+
+	for (int i = 0; i < signed(indicators.size()); i++)
+		malKeys.push(indicators[i]);
+
+	while (malKeys.empty() == false)
+	{
+		string mal = malKeys.front();
+		malKeys.pop();
+		prevalence.erase(mal);
+		prevalence[mal] = 0;
+		badEntitiesFound.push_back(mal); //must be sorted(use the set)
+		//unique.insert(mal);
+		DiskMultiMap::Iterator f = forward.search(mal);
+		DiskMultiMap::Iterator b = backward.search(mal);
+		while (f.isValid() == true)
+		{
+			if (prevalence[(*f).value] != 0 && prevalence[(*f).value] < minPrevalenceToBeGood)
+			{
+				prevalence.erase((*f).value);
+				prevalence[(*f).value] = 0;
+				malKeys.push((*f).value);
+			}
+			++f;
+		}
+
+		while (b.isValid() == true)
+		{
+			if (prevalence[(*b).value] != 0 && prevalence[(*b).value] < minPrevalenceToBeGood)
+			{
+				prevalence.erase((*b).value);
+				prevalence[(*b).value] = 0;
+				malKeys.push((*b).value);
+			}
+			++b;
+		}
+	}
+
+	return true;
+
 }
 
 bool IntelWeb::purge(const std::string& entity) 
