@@ -53,7 +53,6 @@ bool DiskMultiMap::insert(const std::string& key, const std::string& value, cons
 	int emptyNodes;
 	bf.read(emptyNodes, 20);
 	bf.read(numNodes, header + (bucket*i));
-
 	if (emptyNodes == 0)
 	{
 		bf.write(numNodes + 1, header + (bucket*i));
@@ -83,6 +82,7 @@ bool DiskMultiMap::insert(const std::string& key, const std::string& value, cons
 	}
 	else
 	{
+		
 		int node;
 		bf.write(numNodes + 1, header + (bucket*i));
 		bf.read(node, 30 + (5*(emptyNodes - 1)));//use an empty one fr header
@@ -97,15 +97,15 @@ bool DiskMultiMap::insert(const std::string& key, const std::string& value, cons
 			bf.write(node, header + (bucket*i) + 25);
 			bf.write(copy, node + 365);
 		}
-
 		bf.write(nodeSpace, node);
 		strcpy_s(s, key.c_str());
-		bf.write(s, node);
+		bf.write(s, node); 
 		strcpy_s(s, value.c_str());
-		bf.write(s, node + 121);
+		bf.write(s, node + 121); 
 		strcpy_s(s, context.c_str());
 		bf.write(s, node + 242);
 		bf.write(emptyNodes - 1, 20);
+
 		return true;
 	}
 	return false;
@@ -113,16 +113,18 @@ bool DiskMultiMap::insert(const std::string& key, const std::string& value, cons
 
 DiskMultiMap::Iterator DiskMultiMap::search(const std::string& key) 
 {
+	
 	int i = hash(key);
-	int numNodes = 0;
-	int pos = header + (bucket*i);
-	bf.read(numNodes, pos);
+	int numNodes = 0; 
+	int pos = header + (bucket*i); 
+	bf.read(numNodes, pos); 
 	if (numNodes > 0)
 	{
+		cout << "found key\n";
 		Iterator iter(pos, numNodes, bf);
 		return iter;
 	}
-	else
+	else 
 		cout << "not here\n";
 	Iterator iter(0, 0, bf);
 	return iter;
@@ -137,20 +139,29 @@ int DiskMultiMap::erase(const std::string& key, const std::string& value, const 
 	int prev = header + (bucket*i);
 	bf.read(numNodes, prev);
 	prev += 25;
-	for (int k = 0; k < numNodes; k++, ++iter)
+	////cout << numNodes<<"\n";
+	for (int k = 0; k != numNodes; k++, ++iter)
 	{
 		if ((*iter).value == value && (*iter).context == context)
 		{
 			int erase;
 			bf.read(erase, prev);
 			emptyNode(erase);
-			bf.read(erase, erase + 365);
-			bf.write(erase, prev);
+			if (k != (numNodes - 1))
+			{
+				bf.read(erase, erase + 365);
+				bf.write(erase, prev);
+			}
 			erased++;
 		}
-		bf.read(prev, prev);
+		bf.read(prev, prev); 
 		prev += 365;
-	}
+		
+	}int j; bf.read(j, 20); cout << j << "-erase changes\n"; //once loop ends, everything changes, idk why WWWWHHHHHYYYYYY
+	
+	bf.write(numNodes - erased, header + (bucket*i)); 
+//	bf.read(j, 0);
+//	cout << j << "erase changes\n";
 	return erased;
 }
 
@@ -158,12 +169,14 @@ int DiskMultiMap::erase(const std::string& key, const std::string& value, const 
 ////////////////////////////private////////////////////////////
 int DiskMultiMap::hash(const string& str)
 {
-	int i = 0;
-	bf.read(i, 0);
-	std::hash<std::string> str_hash;
-	unsigned int hashValue = str_hash(str);
-	unsigned int buck = hashValue % i;
+	cout << "safljl\n";
+	int i;
+	bf.read(i, 0); cout << i <<"appple\n";
+	std::hash<std::string> str_hash; 
+	unsigned int hashValue = str_hash(str);cout << "sssac\n";
+	unsigned int buck = hashValue % i; cout << "appasjoicjoisje\n";
 	return buck;
+	
 }
 
 void DiskMultiMap::emptyNode(int space)
@@ -193,9 +206,6 @@ DiskMultiMap::Iterator::Iterator(int bckt, int nodes, BinaryFile& BF)
 	m_curr = curr; //curr points to the beginning of the node
 }
 
-
-
-// You may add additional constructors
 bool DiskMultiMap::Iterator::isValid() const 
 { 
 	return m_valid; 
@@ -234,3 +244,4 @@ MultiMapTuple DiskMultiMap::Iterator::operator*()
 	x.context = r;
 	return x;
 }
+
