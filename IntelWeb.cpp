@@ -171,7 +171,25 @@ unsigned int IntelWeb::crawl(const std::vector<std::string>& indicators,
 }
 
 bool IntelWeb::purge(const std::string& entity) 
-{ return false; }
+{ 
+	DiskMultiMap::Iterator f = forward.search(entity);
+	DiskMultiMap::Iterator b = backward.search(entity);
+	if (f.isValid() == false && b.isValid() == false)
+		return false;
+
+	while (f.isValid() == true)
+	{
+		forward.erase((*f).key, (*f).value, (*f).context);
+		++f;
+	}
+	while (b.isValid() == true)
+	{
+		forward.erase((*b).value, (*b).key, (*b).context);
+		++f;
+	}
+	
+	return false; 
+}
 
 
 //////////////////////////////InteractionTuple Comparison Operator////////////////////////////////
@@ -179,7 +197,7 @@ bool IntelWeb::purge(const std::string& entity)
 inline
 bool operator<(const InteractionTuple& left, const InteractionTuple& right)
 {
-	if (left.from < right.from)
+	if (left.context < right.context)
 		return true;
 	return false;
 }
