@@ -126,36 +126,68 @@ unsigned int IntelWeb::crawl(const std::vector<std::string>& indicators,
 		malKeys.pop();
 		prevalence.erase(mal);
 		prevalence[mal] = 0;
-		badEntitiesFound.push_back(mal); //must be sorted(use the set)
-		//unique.insert(mal);
+		unique.insert(mal);
 		DiskMultiMap::Iterator f = forward.search(mal);
 		DiskMultiMap::Iterator b = backward.search(mal);
 		while (f.isValid() == true)
 		{
-			if (prevalence[(*f).value] != 0 && prevalence[(*f).value] < minPrevalenceToBeGood)
+			if (unsigned(prevalence[(*f).value]) != 0 && unsigned(prevalence[(*f).value]) < minPrevalenceToBeGood)
 			{
 				prevalence.erase((*f).value);
 				prevalence[(*f).value] = 0;
 				malKeys.push((*f).value);
 			}
+			log.insert(InteractionTuple(mal, (*f).value, (*f).context));
 			++f;
 		}
 
 		while (b.isValid() == true)
 		{
-			if (prevalence[(*b).value] != 0 && prevalence[(*b).value] < minPrevalenceToBeGood)
+			if (unsigned(prevalence[(*b).value]) != 0 && unsigned(prevalence[(*b).value]) < minPrevalenceToBeGood)
 			{
 				prevalence.erase((*b).value);
 				prevalence[(*b).value] = 0;
 				malKeys.push((*b).value);
 			}
+			log.insert(InteractionTuple((*b).value, mal, (*b).context));
 			++b;
 		}
 	}
 
-	return true;
+	int entities = 0;
+	for (it = unique.begin(); it != unique.end(); it++)
+	{
+		badEntitiesFound.push_back(*it);
+		entities++;
+	}
 
+	set<InteractionTuple>::iterator iter;
+	for (iter = log.begin(); iter != log.end(); iter++)
+	{
+		badInteractions.push_back(*iter);
+	}
+
+	return entities;
 }
 
 bool IntelWeb::purge(const std::string& entity) 
 { return false; }
+
+
+//////////////////////////////InteractionTuple Comparison Operator////////////////////////////////
+
+inline
+bool operator<(const InteractionTuple& left, const InteractionTuple& right)
+{
+	if (left.from < right.from)
+		return true;
+	return false;
+}
+
+inline
+bool operator==(const InteractionTuple& left, const InteractionTuple& right)
+{
+	if (left.from == right.from && left.to == right.to && left.context == right.context)
+		return true;
+	return false;
+}
